@@ -1,0 +1,43 @@
+<html>
+<head><title>Login SAT</title>
+</head>
+<body>
+<style>
+.helptext{
+    display:block;
+    color:blue;
+}
+.regfield{
+    display:block;
+}
+th{
+   text-align:left;
+   padding:10px;
+}
+table{
+    margin:auto;
+    border: 3px solid #00DD44;
+    padding:20px;
+    border-radius:20px;
+}
+button{
+    padding:10px;
+    margin-top:25px;
+    border-radius:10px;
+    background-color:#00DD44;
+}
+</style>
+{% block content %}
+
+<div class="reg-container">
+    <form method="POST">
+       {% csrf_token %}
+        <table>
+       {{ register_form.as_table }}
+        </table>
+       <center> <button class="btn btn-primary" type="submit">REGISTER</button></center>
+    </form>
+</div>
+{% endblock %}
+</body>
+</html>

@@ -1,0 +1,32 @@
+<html>
+<head><title>Login SAT</title>
+</head>
+<body>
+<style>
+li{
+display:none;
+}
+.regfield{display:block;}
+th{text-align:left;padding:10px;}
+td{text-align:left;padding:10px;}
+table{width:50%;margin:auto;border: 3px solid #00DD44;padding:20px;border-radius:20px;}
+.tabs{overflow:hidden;border:1px solid #ccc;background-color:#f1f1f1;}
+.tabs .switch {background-color:inherit;float:left;border:none;outline:none;padding:14px 16px;}
+.tabs .switch:hover{background-color:#ddd;}
+.tabs .switch.active{background-color:#ccc;}
+.tab {display:none;padding:6px 12px; border:1px solid #ccc;border-top:none;}
+</style>
+<center>
+<h1>Welcome {{uname}}</h1>
+<a href="/logout">Logout</a>
+</br>
+<div class="tabs">
+<a href="/user/student"><div class="switch">Profile</div></a>
+<a href="/user/student/dashboard"><div class="switch">Dashboard</div></a>
+<a href="/user/student/newcertificate"><div class="switch">Upload</div></a>
+</div>
+<div>
+{{data}}
+</div>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<html>
+<head><title>Login SAT</title>
+</head>
+<body>
+<style>
+li{
+display:none;
+}
+.regfield{display:block;}
+th{text-align:left;padding:10px;}
+td{text-align:left;padding:10px;}
+table{width:50%;margin:auto;border: 3px solid #00DD44;padding:20px;border-radius:20px;}
+.tabs{overflow:hidden;border:1px solid #ccc;background-color:#f1f1f1;}
+.tabs .switch {background-color:inherit;float:left;border:none;outline:none;padding:14px 16px;}
+.tabs .switch:hover{background-color:#ddd;}
+.tabs .switch.active{background-color:#ccc;}
+.tab {display:none;padding:6px 12px; border:1px solid #ccc;border-top:none;}
+</style>
+<center>
+<h1>Welcome {{uname}}</h1>
+<a href="/logout">Logout</a>
+<form method="POST">
+	{% csrf_token %}
+    {% if verified != None %}{% if verified == True %} <script>document.getElementById("Profile").style.display = "block";</script> {% endif %}{% endif %}
+    {% if verified != None %}{% if not verified %} {% if applied != None %}{% if not applied %}
+    		</br>Please Update Your Information</br><table>{{form.as_table}}</table>
+			</br></br><button class="btn btn-primary" type="submit">Apply for Verification</button>{% endif %}
+	{% if applied %} </br></br>Your account is not verified. Please Login after sometime.</br></br><button class="btn btn-secondary" name="button-action" value="edit_profile" type="submit">Allow Edit Profile</button> {% endif %}
+	{% endif %}{% endif %}{% endif %}
+</form>
+</center>
+<script>
+    function selecttab(event, name){
+    	var index, tabs, switches;
+    	tabs = document.getElementsByClassName("tab");
+    	switches = document.getElementsByClassName("switch");
+    	for (index=0; index<tabs.length; index++){
+    		tabs[index].style.display = "none";
+    		switches[index].className = switches[index].className.replace(" active","")
+    	}
+    	document.getElementById(name).style.display = "block";
+    	event.currentTarget.className += " active";
+    }    
+</script>    
+</body>
+</html>
