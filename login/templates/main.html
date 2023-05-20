@@ -1,0 +1,41 @@
+<html>
+<head><title>Login SAT</title>
+</head>
+<body>
+<style>
+li{display:none;}
+.regfield{display:block;}
+th{text-align:left;padding:10px;}
+td{text-align:left;padding:10px;}
+table{margin:auto;border: 1px solid #8f8f8f;padding:20px;border-radius:20px;}
+.tabs{overflow:hidden;border:1px solid #ccc;background-color:#f1f1f1;}
+.tabs .switch {background-color:inherit;float:left;border:none;outline:none;padding:14px 16px;}
+.tabs .switch:hover{background-color:#ddd;}
+.tabs .switch.active{background-color:#ccc;}
+.tab {display:none;padding:6px 12px; border:1px solid #ccc;border-top:none;}
+#header{
+	width:100%;
+	background-color: #C1C6CA;
+	display: table;
+}
+#headertext{
+	padding:20px;
+	font-weight: bold;
+	font-size: 40px;
+	color:blue;
+	position:absolute;
+	top:10px;
+}
+.hcont{
+	display: inline;
+}
+.userwelcome{
+	text-align: right;
+	font-weight: bold;
+	padding:5px;
+}
+</style>
+<div id="header"><img class="hcont" src="../../../media/logo.png" height="100px" style="padding:5px;"><div class="hcont" id="headertext">Your University</div></div>
+<div id="body-content">{% block menu %}{% endblock %}{% block welcome %}{% endblock %}{% block content%}{% endblock %}</div>
+</body>
+</html>

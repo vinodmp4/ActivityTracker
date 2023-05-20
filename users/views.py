@@ -83,7 +83,7 @@ def split_stud_by_aca_year(data):
             for y in year_data[yr]:
                 if y[6] in selected_scores:user_year_score += int(y[4])
             year_based_score[yr] = user_year_score
-        output[stud.acayear].append([stud.fullname, stud.regid, stud.dept, stud.email, stud.mobno, year_based_score])
+        output[stud.acayear].append([stud.fullname, stud.regid, stud.dept, stud.email, stud.mobno, year_based_score, stud.user_id])
     return output
 
 def admin_home(request):
@@ -127,7 +127,7 @@ def admin_verify(request):
         all_user_data += '<table class="tablellist"><tr><th>Full Name</th><th>Registration ID</th><th>Academic Year</th><th>Department</th><th>E Mail</th><th>Mobile Number</th><th>User Type</th><th>Verified</th></tr>'
         for prof_ in all_profile:
             if prof_.verify_applied and not(prof_.id == profile.id):
-                all_user_data += f"<tr><td>{prof_.fullname}</td><td>{prof_.regid}</td><td>{prof_.acayear}</td><td>{prof_.dept}</td><td>{prof_.email}</td><td>{prof_.mobno}</td><td>{prof_.usertype}</td>"
+                all_user_data += f"<tr><td>{prof_.fullname}</td><td>{prof_.regid}</td><td>{prof_.acayear}</td><td>{prof_.dept}</td><td>{prof_.email}</td><td>{prof_.mobno}</td><td>{get_usertype(prof_.usertype)}</td>"
                 if prof_.verified:
                     all_user_data += '<td><div class="form-check"><input class="form-check-input" type="checkbox" checked="checked" value="'+str(prof_.user_id)+'" name="boxes"></div></td>'
                 else:
@@ -288,23 +288,70 @@ def faculty_home(request):
 
 def faculty_dashboard(request):
     if request.user.is_authenticated:
+        view_profile = False
         if request.method == "POST":
-            pass
+            selected_students = request.POST.getlist('selected_student')
+            if len(selected_students)>0:
+                view_profile = True
+                s_c = selected_students[0]
         # End of updation --------------------
         profile = Profile.objects.get(user=request.user)
         pd = get_profile(profile)
         if not(pd[-1]=='fa'):return redirect("/")
-        data = '</br></br>No assigned students'
-        stud_list = Profile.objects.filter(mentor=profile.user_id, usertype='st')
-        score_by_student_by_year = split_stud_by_aca_year(stud_list)
-        if len(score_by_student_by_year.keys())>0:
-            for yr in score_by_student_by_year.keys():
-                year_d = int(yr) # eg. 2018
-                data = f'<div id="switch{yr}" style="margin:20px;border:1px gray solid; padding:10px; text-align:left;width:50%;font-weight:bold;font-size:20px;" onclick=\'toggle({yr},"Batch {year_d} - {year_d+4}")\'>&#11166; &emsp;Batch {year_d} - {year_d+4}</div>'
-                data += f'<section id="{yr}" hidden="hidden"><table><tr><th>Full Name</th><th>Registration ID</th><th>Department</th><th>E Mail</th><th>Mobile Number</th><th>Year 1 Score</th><th>Year 2 Score</th><th>Year 3 Score</th><th>Year 4 Score</th></tr>'
-                for stud_data in score_by_student_by_year[yr]:
-                    data += f'<tr><td>{stud_data[0]}</td><td>{stud_data[1]}</td><td>{stud_data[2]}</td><td>{stud_data[3]}</td><td>{stud_data[4]}</td><td>{stud_data[5][1]}</td><td>{stud_data[5][2]}</td><td>{stud_data[5][3]}</td><td>{stud_data[5][4]}</td></tr>'
-                data += "</table></section>"
+        if not(view_profile):
+            data = '</br></br>No assigned students'
+            stud_list = Profile.objects.filter(mentor=profile.user_id, usertype='st')
+            score_by_student_by_year = split_stud_by_aca_year(stud_list)
+            if len(score_by_student_by_year.keys())>0:
+                csrf_token = csrf.get_token(request)
+                data = '<form id="selectstudentform" action="" method="POST"><input type="hidden" name="csrfmiddlewaretoken" value="'+csrf_token+'">'
+                for yr in score_by_student_by_year.keys():
+                    year_d = int(yr) # eg. 2018
+                    data += f'<div id="switch{yr}" style="margin:20px;border:1px gray solid; padding:10px; text-align:left;width:50%;font-weight:bold;font-size:20px;" onclick=\'toggle({yr},"Batch {year_d} - {year_d+4}")\'>&#11166; &emsp;Batch {year_d} - {year_d+4}</div>'
+                    data += f'<section id="{yr}" hidden="hidden"><table><tr><th>Full Name</th><th>Registration ID</th><th>Department</th><th>E Mail</th><th>Mobile Number</th><th>Year 1 Score</th><th>Year 2 Score</th><th>Year 3 Score</th><th>Year 4 Score</th><th>Select</th></tr>'
+                    for stud_data in score_by_student_by_year[yr]:
+                        data += f'<tr><td>{stud_data[0]}</td><td>{stud_data[1]}</td><td>{stud_data[2]}</td><td>{stud_data[3]}</td><td>{stud_data[4]}</td><td>{stud_data[5][1]}</td><td>{stud_data[5][2]}</td><td>{stud_data[5][3]}</td><td>{stud_data[5][4]}</td><td><input type="radio" onChange="submitform()" name="selected_student" value="{stud_data[6]}"></td></tr>'
+                    data += "</table></section>"
+                data += '</form>'
+        else:
+            stud_prof = Profile.objects.get(user=s_c)
+            if stud_prof.mentor == profile.user_id:
+                data = f'<h3>Showing report of {stud_prof.fullname}</h3></br>'
+                user_certificates = certificate.objects.filter(owner_id=s_c)
+                temp_data = split_by_aca_year(user_certificates)
+                year_ids = []; year_data = {};score_finder_data = {};selected_scores = []
+                for key in temp_data.keys():
+                    year_ids.append(key)
+                    year_data[key] = temp_data[key][0]
+                    score_finder_data[key] = temp_data[key][1]
+                if len(list(score_finder_data.keys()))>0:selected_scores = get_selected_score_index(score_finder_data)
+                if len(year_ids)>0:
+                    year_ids.sort()
+                    year_based_score = {}
+                    for yr in year_ids:
+                        user_year_score = 0
+                        for y in year_data[yr]:
+                            if y[6] in selected_scores:user_year_score += int(y[4])
+                        year_based_score[yr] = user_year_score
+                    data += '<table><tr><th>Academic Year</th>'
+                    for yr in year_ids:
+                        data += f'<th>{profile.acayear + (yr-1)} - {profile.acayear + yr}</th>'
+                    data += '</tr><tr><th>Score</th>'
+                    for yr in year_ids:
+                        data += f'<td>{year_based_score[yr]}</td>'
+                    data += '</tr></table>'
+                    year_ids.sort(reverse=True)
+                    for yr in year_ids:
+                        data += f'<div id="switch{yr}" style="margin:20px;border:1px gray solid; padding:10px; text-align:left;width:50%;font-weight:bold;font-size:20px;" onclick=\'toggle({yr},"Academic Year {profile.acayear + (yr-1)} - {profile.acayear + yr}")\'>&#11166; &emsp;Academic Year {profile.acayear + (yr-1)} - {profile.acayear + yr}</div>'
+                        data += f'<div  style="text-align:left;width:50%;font-weight:bold;">Total score: {year_based_score[yr]}</div>'
+                        data += f'<section id="{yr}" hidden="hidden"><table><tr><th>Category</th><th>Title</th><th>Description</th><th>Grade</th><th>Score</th><th>Proof</th><th>Selected for Score</th></tr>'
+                        for y in year_data[yr]:
+                            selec = "&#10007;"
+                            if y[6] in selected_scores:selec = "&#9989;"
+                            if y[5]=='Hardcopy':data += f'<tr><td>{y[0]}</td><td>{y[1]}</td><td>{y[2]}</td><td>{y[3]}</td><td>{y[4]}</td><td>{y[5]}</td><td>{selec}</td></tr>'
+                            else:data += f'<tr><td>{y[0]}</td><td>{y[1]}</td><td>{y[2]}</td><td>{y[3]}</td><td>{y[4]}</td><td><a href="../../{y[5]}">View File</a></td><td>{selec}</td></tr>'
+                        data += "</table></section>"
+            else:return redirect("/user/faculty/dashboard")
         return render(request, 'users/faculty_dashboard.html', {"uname":pd[0], 'data':format_html(data)})
     else:
         return redirect("/login")
