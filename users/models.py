@@ -22,7 +22,7 @@ class certificate(models.Model):
     hardcopy = models.BooleanField(default=False)
     doc_loc = models.CharField(max_length=150,default="/")
     verified = models.BooleanField(default=False)
-
+    rejected = models.BooleanField(default=False)
     def __str__(self):
         return self.doc_desc
 

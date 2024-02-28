@@ -17,5 +17,22 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'{self.user.username}'
+        
+
+class OTP(models.Model): 
+    owner = models.IntegerField(default=-1)
+    text = models.CharField(max_length=6,default="000000") # six digit One Time Passwords
+    verified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
+        
+class Notification(models.Model):
+    owner = models.IntegerField(default=-1)
+    text = models.CharField(max_length=300,default="Hello User")
+    viewed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
 
 # Create your models here.

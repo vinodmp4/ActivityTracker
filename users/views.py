@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from .forms import NewCertificateType, NewCertificate
-from login.models import Profile
+from login.models import Profile, OTP, Notification
 from .models import certificate_type, certificate
 from django.utils.html import format_html
 from django.middleware import csrf
@@ -13,7 +13,22 @@ class guest_mentor:
         self.dept = "NA"
         self.email = "NA"
         self.mobno = "NA"
-    
+
+def sentNotification(userid, message):
+    new_notification = Notification(owner=userid, text=message, viewed= False)
+    new_notification.save()
+        
+def getmyNotifications(myid):
+    output = "</table>"
+    dataset = Notification.objects.filter(owner=myid)
+    for index, data in enumerate(dataset):
+        if not(data.viewed):
+            output = "<tr><td>"+str(len(dataset)-index)+"</td><td>"+data.text+"</td><td>New</td></tr>" + output
+            Notification.objects.filter(pk=data.id).update(viewed=True)
+        else:
+            output = "<tr><td>"+str(len(dataset)-index)+"</td><td>"+data.text+"</td><td>Viewed</td></tr>" + output
+    output = '<table class="tablellist"><tr><th>Serial Number</th><th>Message</th><th>Status</th></tr>' + output
+    return output
 
 def get_profile(profile):
     return (profile.fullname, profile.regid, profile.acayear, profile.dept, profile.email, profile.mobno, profile.verified, profile.usertype)
@@ -197,6 +212,30 @@ def admin_certificates(request):
     else:
         return redirect("/login")
 
+def admin_OTP(request):
+    if request.user.is_authenticated:
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
+        OTPS = OTP.objects.all()
+        this_otps = []
+        OTPDATA = "No Requests"
+        temp_html = 'OTP Requests </br><table class="tablellist"><tr><th>Full Name</th><th>Registration ID</th><th>Joining Year</th><th>Department</th><th>E Mail</th><th>Mobile Number</th><th>OTP</th></tr>'
+        temp_flag = False
+        for OTP_ in OTPS:
+            otp_owner = Profile.objects.filter(pk = OTP_.owner)
+            if otp_owner.values('usertype')[0]['usertype']=='fa':
+            	temp_flag = True
+            	this_otps.append([otp_owner.values('fullname')[0]['fullname'], otp_owner.values('regid')[0]['regid'], str(otp_owner.values('acayear')[0]['acayear']),
+                                  otp_owner.values('dept')[0]['dept'], otp_owner.values('email')[0]['email'], otp_owner.values('mobno')[0]['mobno'], OTP_.text])
+        if temp_flag:
+            OTPDATA = temp_html
+            for otp_ in this_otps:
+                OTPDATA += "<tr><td>"+"</td><td>".join(otp_)+"</td></tr>"
+            OTPDATA += "</table></br></br>"
+        return render(request, 'users/admin_faculty.html', {"uname":pd[0], "data":format_html(OTPDATA)})
+    else:
+        return redirect("/login")
+
 def admin_faculty(request):
     fac_list = []
     if request.user.is_authenticated:
@@ -286,6 +325,30 @@ def faculty_home(request):
     else:
         return redirect("/login")
 
+def faculty_OTP(request):
+    if request.user.is_authenticated:
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
+        OTPS = OTP.objects.all()
+        this_otps = []
+        OTPDATA = "No Requests"
+        temp_html = 'OTP Requests </br><table class="tablellist"><tr><th>Full Name</th><th>Registration ID</th><th>Joining Year</th><th>Department</th><th>E Mail</th><th>Mobile Number</th><th>OTP</th></tr>'
+        temp_flag = False
+        for OTP_ in OTPS:
+            otp_owner = Profile.objects.filter(pk = OTP_.owner)
+            if ((otp_owner.values('usertype')[0]['usertype']=='st') and (otp_owner.values('mentor')[0]['mentor']==profile.user_id)):
+            	temp_flag = True
+            	this_otps.append([otp_owner.values('fullname')[0]['fullname'], otp_owner.values('regid')[0]['regid'], str(otp_owner.values('acayear')[0]['acayear']),
+                                  otp_owner.values('dept')[0]['dept'], otp_owner.values('email')[0]['email'], otp_owner.values('mobno')[0]['mobno'], OTP_.text])
+        if temp_flag:
+            OTPDATA = temp_html
+            for otp_ in this_otps:
+                OTPDATA += "<tr><td>"+"</td><td>".join(otp_)+"</td></tr>"
+            OTPDATA += "</table></br></br>"
+        return render(request, 'users/faculty_dashboard.html', {"uname":pd[0], "data":format_html(OTPDATA)})
+    else:
+        return redirect("/login")
+
 def faculty_dashboard(request):
     if request.user.is_authenticated:
         view_profile = False
@@ -358,14 +421,24 @@ def faculty_dashboard(request):
 
 def faculty_verify(request):
     if request.user.is_authenticated:
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
         if request.method == "POST":
             verify_cert = request.POST.getlist('verified_certificates')
             if len(verify_cert)>0:
                 for v_c in verify_cert:
                     certificate.objects.filter(id=int(v_c)).update(verified=True)
+                    this_cert = certificate.objects.filter(id=int(v_c))
+                    user_index = this_cert.values('owner_id')[0]['owner_id']
+                    sentNotification(user_index, 'Your '+this_cert.values('doc_desc')[0]['doc_desc']+' certificate has been verified by '+pd[0])
+            rejected_cert = request.POST.getlist('rejected_certificates')
+            if len(rejected_cert)>0:
+                for r_c in rejected_cert:
+                    certificate.objects.filter(id=int(r_c)).update(rejected=True)
+                    this_cert = certificate.objects.filter(id=int(r_c))
+                    user_index = this_cert.values('owner_id')[0]['owner_id']
+                    sentNotification(user_index, 'Your '+this_cert.values('doc_desc')[0]['doc_desc']+' certificate has been rejected by '+pd[0])
         # End of updation --------------------
-        profile = Profile.objects.get(user=request.user)
-        pd = get_profile(profile)
         if not(pd[-1]=='fa'):return redirect("/")
         stud_list = Profile.objects.filter(mentor=profile.user_id, usertype='st')
         stud_ids = [stud.user_id for stud in stud_list]
@@ -375,15 +448,22 @@ def faculty_verify(request):
             for u_c in user_certificates:
                 if not(u_c.verified):unverified_certificates.append(u_c)
         if len(unverified_certificates)>0:
+            remove_index = []
+            for ind, u_c in enumerate(unverified_certificates):
+                if u_c.rejected:remove_index.append(ind)
+            remove_index.sort(reverse=True)
+            for ind in remove_index:
+                temp_val = unverified_certificates.pop(ind)
+        if len(unverified_certificates)>0:
             csrf_token = csrf.get_token(request)
             data = '<form action="" method="POST"><input type="hidden" name="csrfmiddlewaretoken" value="'+csrf_token+'">'
-            data += '<table class="tablellist"><tr><th>Submitted by</th><th>Registration ID</th><th>Certificate Category</th><th>Certificate Title</th><th>Certificate Description</th><th>Proof</th><th>Verify</th></tr>'
+            data += '<table class="tablellist"><tr><th>Submitted by</th><th>Registration ID</th><th>Certificate Category</th><th>Certificate Title</th><th>Certificate Description</th><th>Proof</th><th>Verify</th><th>Rejected</th></tr>'
             for u_c in unverified_certificates:
                 stud_prof = Profile.objects.get(user=u_c.owner_id)
                 cat = certificate_type.objects.get(pk=u_c.doc_id)
                 if (u_c.hardcopy):data += f'<tr><td>{stud_prof.fullname}</td><td>{stud_prof.regid}</td><td>{cat.category}</td><td>{cat.title}</td><td>{u_c.doc_desc}</td><td>Hardcopy Submitted</td>'
                 else:data += f'<tr><td>{stud_prof.fullname}</td><td>{stud_prof.regid}</td><td>{cat.category}</td><td>{cat.title}</td><td>{u_c.doc_desc}</td><td><a href="../../{u_c.doc_loc}">View File</a></td>'
-                data += f'<td><div><input type="checkbox" value="{u_c.id}" name="verified_certificates"></div></td></tr>'
+                data += f'<td><div><input type="checkbox" value="{u_c.id}" name="verified_certificates"></div></td><td><div><input type="checkbox" value="{u_c.id}" name="rejected_certificates"></div></td></tr>'
             data += '</table></br></br><button class="btn btn-secondary" name="button-action" value="verify" type="submit">Save</button></form>'
         return render(request, 'users/faculty_verify.html',{"uname":pd[0], 'data':format_html(data)})
     else:
@@ -405,6 +485,16 @@ def student_home(request):
                     <tr><th>Mobile:</th><td>{pd[5]}</td></tr>\
                     <tr><th>User Type:</th><td>{get_usertype(pd[-1])}</td></tr></table>"
         return render(request, 'users/student_profile.html', {"uname":pd[0], 'data':format_html(data)})
+    else:
+        return redirect("/login")
+
+def student_notifications(request):
+    if request.user.is_authenticated:
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
+        notifications = getmyNotifications(request.user.id)
+        data = notifications
+        return render(request, 'users/student_dashboard.html', {"uname":pd[0], 'data':format_html(data)})
     else:
         return redirect("/login")
 

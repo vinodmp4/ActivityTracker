@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Profile
+from .models import Profile, OTP
 
 class NewUserForm(UserCreationForm):
 
@@ -34,5 +34,10 @@ class ProfileUpdateForm(forms.ModelForm):
         model = Profile
         fields = ['fullname','regid','acayear','dept','email','mobno','usertype']
 
-        
-    
+class newotp(forms.ModelForm):
+    otp = forms.CharField(max_length=6, label=("Enter OTP"))
+    otp.widget.attrs.update({'class':'otpfield'})
+
+    class Meta:
+        model = OTP
+        fields = ['otp']
