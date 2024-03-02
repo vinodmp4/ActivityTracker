@@ -4,8 +4,17 @@ from login.models import Profile, OTP, Notification
 from .models import certificate_type, certificate
 from django.utils.html import format_html
 from django.middleware import csrf
+from metrics.models import blockchain
+import hashlib
 # Create your views here.
 
+def makeblock(message):
+    previoushash = blockchain.objects.last()
+    if (previoushash==None):previoushash = "0"
+    else:previoushash = previoushash.hashcode
+    newhash = hashlib.sha256(str(previoushash+message).encode('utf-8')).hexdigest()
+    newblock = blockchain(hashcode = newhash, previoushash = previoushash, data = message)
+    newblock.save()
 
 class guest_mentor:
     def __init__(self):
@@ -122,20 +131,23 @@ def admin_home(request):
 
 def admin_verify(request):
     if request.user.is_authenticated:
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
         if request.method == "POST":
             req_origin = request.POST.getlist('button-action')
             if ('verify' in req_origin):
                 prof_list = request.POST.getlist('boxes')
                 unverify = request.POST.getlist('unverify')
                 for pro in prof_list:
+                    t_user = Profile.objects.get(user=pro).fullname
                     if len(unverify)>0:
                         Profile.objects.filter(user=pro).update(verified=False)
+                        makeblock(pd[0]+" unverified - "+t_user)
                     else:
                         Profile.objects.filter(user=pro).update(verified=True)
+                        makeblock(pd[0]+" verified - "+t_user)
         # End of updation --------------------
         all_profile = Profile.objects.all()
-        profile = Profile.objects.get(user=request.user)
-        pd = get_profile(profile)
         if not(pd[-1]=='ad'):return redirect("/")
         csrf_token = csrf.get_token(request)
         all_user_data = '<form action="" method="POST"><input type="hidden" name="csrfmiddlewaretoken" value="'+csrf_token+'">'
@@ -156,6 +168,8 @@ def admin_verify(request):
 def admin_certificates(request):
     if request.user.is_authenticated:
         editable = False
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
         if request.method == "POST":
             edit_cert = request.POST.getlist('edit_cert')
             if len(edit_cert)>0:editable = True
@@ -174,9 +188,9 @@ def admin_certificates(request):
                 certificate_type.objects.filter(id=id_).update(grade=grade)
                 certificate_type.objects.filter(id=id_).update(score=score)
                 certificate_type.objects.filter(id=id_).update(year_max=year_max)
+                makeblock(pd[0]+" updated a certificate - "+title)
         # End of updation --------------------
-        profile = Profile.objects.get(user=request.user)
-        pd = get_profile(profile)
+        
         if not(pd[-1]=='ad'):return redirect("/")
         csrf_token = csrf.get_token(request)
         form = NewCertificateType(request.POST)
@@ -194,6 +208,7 @@ def admin_certificates(request):
             certificate_type.objects.filter(id=user.id).update(grade=grade)
             certificate_type.objects.filter(id=user.id).update(score=score)
             certificate_type.objects.filter(id=user.id).update(year_max=year_max)
+            makeblock(pd[0]+" created a certificate - "+title)
         all_certificates = certificate_type.objects.all()
         all_cert_data = ""
         if len(all_certificates)>0:
@@ -239,6 +254,8 @@ def admin_OTP(request):
 def admin_faculty(request):
     fac_list = []
     if request.user.is_authenticated:
+        profile = Profile.objects.get(user=request.user)
+        pd = get_profile(profile)
         if request.method == "POST":
             req_origin = request.POST.getlist('button-action')
             if ('faculty' in req_origin):fac_list = request.POST.getlist('selected_faculty')
@@ -248,15 +265,15 @@ def admin_faculty(request):
                 studs = request.POST.getlist('stud_assign')
                 for stu in studs:
                     Profile.objects.filter(user_id=int(stu)).update(mentor=int(fac_list[0]))
+                    makeblock(pd[0]+" assigned new mentor for "+str(len(studs))+" student(s)")
             req_unassign = request.POST.getlist('button-unassign')
             if ('faculty' in req_unassign):
                 fac_list = request.POST.getlist('selected_faculty')
                 studs = request.POST.getlist('stud_unassign')
                 for stu in studs:
                     Profile.objects.filter(user_id=int(stu)).update(mentor=-1)
+                    makeblock(pd[0]+" unassigned "+str(len(studs))+" student(s)")
         # End of updation --------------------
-        profile = Profile.objects.get(user=request.user)
-        pd = get_profile(profile)
         if not(pd[-1]=='ad'):return redirect("/")
         csrf_token = csrf.get_token(request)
         faculty_list = Profile.objects.filter(usertype='fa')
@@ -431,6 +448,8 @@ def faculty_verify(request):
                     this_cert = certificate.objects.filter(id=int(v_c))
                     user_index = this_cert.values('owner_id')[0]['owner_id']
                     sentNotification(user_index, 'Your '+this_cert.values('doc_desc')[0]['doc_desc']+' certificate has been verified by '+pd[0])
+                    student = Profile.objects.get(user=user_index)
+                    makeblock(pd[0]+" approved a certificate uploaded by "+student.fullname)
             rejected_cert = request.POST.getlist('rejected_certificates')
             if len(rejected_cert)>0:
                 for r_c in rejected_cert:
@@ -438,6 +457,8 @@ def faculty_verify(request):
                     this_cert = certificate.objects.filter(id=int(r_c))
                     user_index = this_cert.values('owner_id')[0]['owner_id']
                     sentNotification(user_index, 'Your '+this_cert.values('doc_desc')[0]['doc_desc']+' certificate has been rejected by '+pd[0])
+                    student = Profile.objects.get(user=user_index)
+                    makeblock(pd[0]+" rejected a certificate uploaded by "+student.fullname)
         # End of updation --------------------
         if not(pd[-1]=='fa'):return redirect("/")
         stud_list = Profile.objects.filter(mentor=profile.user_id, usertype='st')
@@ -581,6 +602,7 @@ def student_newcertificate(request):
             certificate.objects.filter(id=user.id).update(semester=semester)
             certificate.objects.filter(id=user.id).update(year=year)
             certificate.objects.filter(id=user.id).update(hardcopy=hardcopy)
+            makeblock(pd[0]+" added new certificate -"+document_description)
         user_certificates = certificate.objects.filter(owner_id=request.user.id)
         data = ""
         if len(user_certificates)>0:

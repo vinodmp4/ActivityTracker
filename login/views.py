@@ -9,8 +9,17 @@ from django.utils.html import format_html
 from django.middleware import csrf
 import random, string
 from django.http import HttpRequest
+from metrics.models import blockchain
+import hashlib
 
-
+def makeblock(message):
+    previoushash = blockchain.objects.last()
+    if (previoushash==None):previoushash = "0"
+    else:previoushash = previoushash.hashcode
+    newhash = hashlib.sha256(str(previoushash+message).encode('utf-8')).hexdigest()
+    newblock = blockchain(hashcode = newhash, previoushash = previoushash, data = message)
+    newblock.save()
+    
 def generateOTP(n):
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for i in range(n))
 
@@ -62,6 +71,7 @@ def register_request(request):
             user = form.save()
             login(request, user)
             messages.success(request, "Registration successful." )
+            makeblock("A new user registered")
             return redirect("login")
         messages.error(request, "Unsuccessful registration. Invalid information.")
     form = NewUserForm()
@@ -80,6 +90,7 @@ def login_request(request):
                 if user is not None:
                     login(request, user)
                     messages.info(request, f"You are now logged in as {username}.")
+                    makeblock(str(username)+" logged in")
                     return redirect("/")
                 else:
                     messages.error(request,"Invalid username or password.")
@@ -110,6 +121,7 @@ def password_reset_request(request):
                         this_user = User.objects.get(pk=user.values('user')[0]['user'])
                         this_user.set_password(password1[0])
                         this_user.save()
+                        makeblock(user.values('fullname')[0]['fullname']+" reset password successfully")
                     except Profile.DoesNotExist:
                         return redirect("/login")
                     return redirect("/login")
@@ -123,6 +135,7 @@ def password_reset_request(request):
                 except OTP.DoesNotExist:
                     reference_otp = OTP(owner= user.values('id')[0]['id'], text= generateOTP(6), verified=False)
                     reference_otp.save()
+                    makeblock(user.values('fullname')[0]['fullname']+" generated password reset OTP")
                 if (query_otp == reference_otp.text):
                     form = '<form action="" method="POST"><input type="hidden" name="csrfmiddlewaretoken" value="'+csrf_token+'"><input type="hidden" name="regid" value="'+regid+'">'+'<input type="hidden" name="otpref" value="'+str(user.values('id')[0]['id'])+'">'+'<td>New Password</td><td><input type="password" name="password1"></td></tr><tr><td>Confirm Password</td><td><input type="password" name="password2"></td></tr></form>'
                     form = format_html(form)
@@ -137,7 +150,7 @@ def password_reset_request(request):
                 except OTP.DoesNotExist:
                     reference_otp = OTP(owner= user.values('id')[0]['id'], text= generateOTP(6), verified=False)
                     reference_otp.save()
-                    
+                    makeblock(user.values('fullname')[0]['fullname']+" generated password reset OTP")
                 form = '<center>Contact your Administrator for OTP.</br>Bring your ID Card for Verification.</center></br><form action="" method="POST"><input type="hidden" name="csrfmiddlewaretoken" value="'+csrf_token+'"><input type="hidden" name="regid" value="'+regid+'">'+'<tr><td>OTP</td><td><input name="otp"></td></tr></form>'
                 form = format_html(form)
                 reset_text = "Verify"
@@ -148,6 +161,7 @@ def password_reset_request(request):
     return render(request=request, template_name="login/reset_password.html", context={"reset_form":form, "reset_text":reset_text})
 
 def logout_request(request):
+    makeblock(str(request.user)+" logged out")
     logout(request)
     messages.info(request, "You have successfully logged out.") 
     return redirect("/login")
